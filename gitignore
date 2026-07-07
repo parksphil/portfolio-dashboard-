@@ -1,6 +1,3 @@
-# API key — never commit this file to GitHub
-config.js
-
 # OS files
 .DS_Store
 Thumbs.db
