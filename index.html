@@ -533,7 +533,7 @@
 <div class="footer">
   Governing documents: Portfolio Master Thesis v1.5 &middot; Position Register (governance detail) &middot;
   Master Watch List (candidates) &middot; Process Map (framework navigation)<br>
-  Prices from Financial Modeling Prep API &middot; Refresh at each session open
+  Prices from Twelve Data API (twelvedata.com) &middot; Refresh at each session open
 </div>
 
 <script>
@@ -676,15 +676,20 @@ function saveKey() {
 
 async function fetchPrices(apiKey) {
   const syms = ALL_TICKERS.join(',');
-  const url = `https://financialmodelingprep.com/api/v3/quote/${syms}?apikey=${apiKey}`;
+  const url = `https://api.twelvedata.com/price?symbol=${syms}&apikey=${apiKey}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  if (!Array.isArray(data)) throw new Error('Unexpected API response');
+  if (data.status === 'error') throw new Error(data.message || 'API error');
   const prices = {};
-  for (const item of data) {
-    if (item.symbol && item.price != null) {
-      prices[item.symbol] = item.price;
+  if (ALL_TICKERS.length === 1) {
+    const sym = ALL_TICKERS[0];
+    if (data.price != null) prices[sym] = parseFloat(data.price);
+  } else {
+    for (const sym of ALL_TICKERS) {
+      if (data[sym] && data[sym].price != null) {
+        prices[sym] = parseFloat(data[sym].price);
+      }
     }
   }
   return prices;
@@ -886,7 +891,7 @@ async function loadPrices() {
     });
   } catch (err) {
     console.error(err);
-    const errMsg = err.message.includes('401') || err.message.includes('403')
+    const errMsg = (err.message.includes('401') || err.message.includes('403') || err.message.includes('Invalid API key') || err.message.includes('api_key'))
       ? 'Invalid API key. <a href="#" onclick="clearKey()">Clear saved key</a> and re-enter.'
       : 'Could not fetch prices: ' + err.message;
     document.getElementById('trigger-body').innerHTML =
