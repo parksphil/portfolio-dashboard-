@@ -523,7 +523,7 @@
 <div class="footer">
   Governing documents: Portfolio Master Thesis v1.5 &middot; Position Register (governance detail) &middot;
   Master Watch List (candidates) &middot; Process Map (framework navigation)<br>
-  Prices from Yahoo Finance &middot; No API key required &middot; Refresh at each session open
+  Prices from Yahoo Finance &middot; No API key required &middot; Auto-retries on rate limit &middot; Refresh at each session open
 </div>
 
 <script>
@@ -644,23 +644,37 @@ function clearKey() { /* retained for compatibility */ }
    PRICE FETCHING
    ═══════════════════════════════════════════════════════════════════ */
 
-async function fetchPrices(apiKey) {
+async function fetchPrices() {
   const prices = {};
-  const syms = ALL_TICKERS.join('%2C');
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${syms}&fields=regularMarketPrice&corsDomain=finance.yahoo.com`;
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0' }
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  const results = data?.quoteResponse?.result;
-  if (!results || !Array.isArray(results)) throw new Error('Unexpected response from Yahoo Finance');
-  for (const item of results) {
-    if (item.symbol && item.regularMarketPrice != null) {
-      prices[item.symbol] = item.regularMarketPrice;
-    }
+  const syms = ALL_TICKERS.join(',');
+  const yahooUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(syms)}&fields=regularMarketPrice`;
+
+  /* Try direct Yahoo first, then fall back to two CORS proxies */
+  const attempts = [
+    () => fetch(yahooUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } }),
+    () => fetch(`https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`),
+    () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`),
+  ];
+
+  let lastError = null;
+  for (const attempt of attempts) {
+    try {
+      const res = await attempt();
+      if (!res.ok) { lastError = new Error(`HTTP ${res.status}`); continue; }
+      const data = await res.json();
+      const results = data?.quoteResponse?.result;
+      if (!results || !Array.isArray(results) || results.length === 0) {
+        lastError = new Error('No results returned'); continue;
+      }
+      for (const item of results) {
+        if (item.symbol && item.regularMarketPrice != null) {
+          prices[item.symbol] = item.regularMarketPrice;
+        }
+      }
+      if (Object.keys(prices).length > 0) return prices;
+    } catch(e) { lastError = e; }
   }
-  return prices;
+  throw lastError || new Error('All price sources failed');
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -855,7 +869,8 @@ async function loadPrices() {
     });
   } catch (err) {
     console.error(err);
-    const errMsg = 'Could not fetch prices from Yahoo Finance. Check your internet connection and try again. Error: ' + err.message;
+    const errMsg = 'Could not fetch prices. All sources tried. Error: ' + err.message +
+        '<br><span style="font-size:10px;color:var(--gray4)">Try again in a few minutes — Yahoo Finance rate limits requests periodically.</span>';
     document.getElementById('trigger-body').innerHTML =
       `<tr><td colspan="7" class="error-msg">${errMsg}</td></tr>`;
     document.getElementById('holdings-body').innerHTML =
