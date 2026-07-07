@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Portfolio Dashboard — Rollover IRA</title>
-<script src="config.js"></script>
 <style>
   :root {
     --navy:   #1B3A6B;
@@ -358,16 +357,7 @@
 </head>
 <body>
 
-<!-- ── CONFIG OVERLAY (shown if no API key in config.js) ── -->
-<div id="config-overlay">
-  <div class="config-box">
-    <h2>Enter your FMP API key</h2>
-    <p>Your config.js file was not found or did not load. Enter your Financial Modeling Prep API key below. It will be saved in your browser for future visits.</p>
-    <input type="text" id="key-input" placeholder="your_fmp_api_key_here" autocomplete="off" />
-    <button onclick="saveKey()">Save and load dashboard</button>
-    <div class="config-note">Key is stored in your browser only. Never sent anywhere except FMP.</div>
-  </div>
-</div>
+<!-- No API key required — Yahoo Finance is used for prices -->
 
 <!-- ── HEADER ── -->
 <div class="header">
@@ -533,7 +523,7 @@
 <div class="footer">
   Governing documents: Portfolio Master Thesis v1.5 &middot; Position Register (governance detail) &middot;
   Master Watch List (candidates) &middot; Process Map (framework navigation)<br>
-  Prices from Twelve Data API (twelvedata.com) &middot; Refresh at each session open
+  Prices from Yahoo Finance &middot; No API key required &middot; Refresh at each session open
 </div>
 
 <script>
@@ -646,50 +636,28 @@ const ALL_TICKERS = [...new Set([
   ...HOLDINGS.map(h => h.sym)
 ])];
 
-/* ═══════════════════════════════════════════════════════════════════
-   API KEY RESOLUTION
-   Priority: 1) config.js (FMP_API_KEY global)
-             2) localStorage
-             3) Config overlay prompt
-   ═══════════════════════════════════════════════════════════════════ */
+/* No API key required — Yahoo Finance is used for price data */
 
-function getApiKey() {
-  if (typeof FMP_API_KEY !== 'undefined' && FMP_API_KEY && FMP_API_KEY !== 'YOUR_FMP_API_KEY_HERE') {
-    return FMP_API_KEY;
-  }
-  const stored = localStorage.getItem('fmp_api_key');
-  if (stored) return stored;
-  return null;
-}
-
-function saveKey() {
-  const val = document.getElementById('key-input').value.trim();
-  if (!val) { alert('Please enter your API key.'); return; }
-  localStorage.setItem('fmp_api_key', val);
-  document.getElementById('config-overlay').classList.remove('show');
-  loadPrices();
-}
+function clearKey() { /* retained for compatibility */ }
 
 /* ═══════════════════════════════════════════════════════════════════
    PRICE FETCHING
    ═══════════════════════════════════════════════════════════════════ */
 
 async function fetchPrices(apiKey) {
-  const syms = ALL_TICKERS.join(',');
-  const url = `https://api.twelvedata.com/price?symbol=${syms}&apikey=${apiKey}`;
-  const res = await fetch(url);
+  const prices = {};
+  const syms = ALL_TICKERS.join('%2C');
+  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${syms}&fields=regularMarketPrice&corsDomain=finance.yahoo.com`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0' }
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  if (data.status === 'error') throw new Error(data.message || 'API error');
-  const prices = {};
-  if (ALL_TICKERS.length === 1) {
-    const sym = ALL_TICKERS[0];
-    if (data.price != null) prices[sym] = parseFloat(data.price);
-  } else {
-    for (const sym of ALL_TICKERS) {
-      if (data[sym] && data[sym].price != null) {
-        prices[sym] = parseFloat(data[sym].price);
-      }
+  const results = data?.quoteResponse?.result;
+  if (!results || !Array.isArray(results)) throw new Error('Unexpected response from Yahoo Finance');
+  for (const item of results) {
+    if (item.symbol && item.regularMarketPrice != null) {
+      prices[item.symbol] = item.regularMarketPrice;
     }
   }
   return prices;
@@ -860,11 +828,7 @@ function updateCalendar() {
    ═══════════════════════════════════════════════════════════════════ */
 
 async function loadPrices() {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    document.getElementById('config-overlay').classList.add('show');
-    return;
-  }
+  const apiKey = null; /* Yahoo Finance requires no API key */
 
   const btn = document.getElementById('refresh-btn');
   const ts  = document.getElementById('ts');
@@ -880,7 +844,7 @@ async function loadPrices() {
     '<tr><td colspan="7" class="loading-msg"><span class="spinner"></span>Loading...</td></tr>';
 
   try {
-    const prices = await fetchPrices(apiKey);
+    const prices = await fetchPrices();
     renderTriggers(prices);
     renderHoldings(prices);
     updateCalendar();
@@ -891,9 +855,7 @@ async function loadPrices() {
     });
   } catch (err) {
     console.error(err);
-    const errMsg = (err.message.includes('401') || err.message.includes('403') || err.message.includes('Invalid API key') || err.message.includes('api_key'))
-      ? 'Invalid API key. <a href="#" onclick="clearKey()">Clear saved key</a> and re-enter.'
-      : 'Could not fetch prices: ' + err.message;
+    const errMsg = 'Could not fetch prices from Yahoo Finance. Check your internet connection and try again. Error: ' + err.message;
     document.getElementById('trigger-body').innerHTML =
       `<tr><td colspan="7" class="error-msg">${errMsg}</td></tr>`;
     document.getElementById('holdings-body').innerHTML =
@@ -906,16 +868,10 @@ async function loadPrices() {
   }
 }
 
-function clearKey() {
-  localStorage.removeItem('fmp_api_key');
-  document.getElementById('config-overlay').classList.add('show');
-}
+
 
 /* ── ENTER key in config overlay ── */
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('key-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') saveKey();
-  });
   loadPrices();
   updateCalendar();
 });
