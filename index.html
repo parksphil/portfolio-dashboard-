@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Dashboard — Rollover IRA</title>
+<script src="config.js"></script>
+<style>
+  :root {
+    --navy:   #1B3A6B;
+    --teal:   #1A6B8A;
+    --green:  #1A6B3A;
+    --amber:  #92600A;
+    --red:    #8B1A1A;
+    --purple: #5A3A7C;
+    --energy: #2D6A2D;
+    --gray1:  #F7F9FB;
+    --gray2:  #EEF2F7;
+    --gray3:  #D4DCE8;
+    --gray4:  #6B7A8D;
+    --white:  #FFFFFF;
+    --text:   #1C2B38;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    color: var(--text);
+    background: var(--gray2);
+    padding: 16px;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .header h1 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--navy);
+  }
+  .header .meta {
+    font-size: 10px;
+    color: var(--gray4);
+    margin-top: 2px;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  #ts {
+    font-size: 11px;
+    color: var(--gray4);
+    text-align: right;
+  }
+  #refresh-btn {
+    font-size: 11px;
+    color: var(--navy);
+    background: var(--white);
+    border: 1px solid var(--gray3);
+    border-radius: 4px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  #refresh-btn:hover { background: var(--gray1); }
+  #refresh-btn:active { opacity: 0.8; }
+  #refresh-btn.loading { color: var(--gray4); cursor: wait; }
+
+  /* ── SUMMARY CARDS ── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  @media (max-width: 700px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  .card {
+    background: var(--white);
+    border: 1px solid var(--gray3);
+    border-radius: 5px;
+    padding: 12px 14px;
+    border-top: 3px solid;
+  }
+  .card-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gray4);
+    margin-bottom: 5px;
+  }
+  .card-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--navy);
+    line-height: 1;
+  }
+  .card-sub {
+    font-size: 10px;
+    color: var(--gray4);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    background: var(--white);
+    border: 1px solid var(--gray3);
+    border-radius: 5px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+  }
+  .section-title {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gray4);
+    border-bottom: 1px solid var(--gray2);
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+  }
+
+  /* ── TRIGGER TABLE ── */
+  .trigger-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    min-width: 620px;
+  }
+  .trigger-table th {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray4);
+    text-align: left;
+    padding: 5px 8px 8px 0;
+    border-bottom: 1px solid var(--gray3);
+    white-space: nowrap;
+  }
+  .trigger-table td {
+    padding: 7px 8px 7px 0;
+    border-bottom: 1px solid var(--gray2);
+    vertical-align: middle;
+  }
+  .trigger-table tr:last-child td { border-bottom: none; }
+  .trigger-table tr.exit-row td { background: var(--gray1); }
+  .trigger-table tr.exit-row:last-child td { background: var(--gray1); }
+
+  /* ── BOTTOM GRID ── */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1.55fr 1fr;
+    gap: 12px;
+  }
+  @media (max-width: 800px) { .bottom-grid { grid-template-columns: 1fr; } }
+  .right-col { display: flex; flex-direction: column; gap: 12px; }
+
+  /* ── HOLDINGS TABLE ── */
+  .holdings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    min-width: 420px;
+  }
+  .holdings-table th {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray4);
+    text-align: left;
+    padding: 5px 6px 8px 0;
+    border-bottom: 1px solid var(--gray3);
+  }
+  .holdings-table td {
+    padding: 7px 6px 7px 0;
+    border-bottom: 1px solid var(--gray2);
+    vertical-align: top;
+  }
+  .holdings-table tr:last-child td { border-bottom: none; }
+
+  /* ── TASKS + CALENDAR ── */
+  .task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--gray2);
+    font-size: 11px;
+  }
+  .task-item:last-child { border-bottom: none; }
+  .task-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+  .dot-amber { background: #B87A0A; }
+  .dot-gray  { background: var(--gray4); }
+  .task-label { font-weight: 700; }
+  .task-note  { font-size: 10px; color: var(--gray4); margin-top: 2px; line-height: 1.4; }
+  .cal-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--gray2);
+    font-size: 11px;
+    gap: 8px;
+  }
+  .cal-row:last-child { border-bottom: none; }
+  .cal-date { font-weight: 700; color: var(--navy); flex-shrink: 0; min-width: 90px; }
+  .cal-days { font-size: 10px; color: var(--gray4); white-space: nowrap; }
+
+  /* ── BADGES ── */
+  .sym {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--navy);
+    white-space: nowrap;
+  }
+  .role-pill {
+    display: inline-block;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: 3px;
+    padding: 2px 6px;
+    white-space: nowrap;
+  }
+  .pill-primary   { background: #DBEAFE; color: #1E40AF; }
+  .pill-secondary { background: #E0E7FF; color: #3730A3; }
+  .pill-secular   { background: #D1FAE5; color: #065F46; }
+  .pill-alpha     { background: #EDE9FE; color: #4C1D95; }
+  .pill-energy    { background: #D1FAE5; color: #065F46; border: 1px solid #A8D5B5; }
+  .pill-harvest   { background: #FEF3C7; color: #92400E; }
+
+  .status-pill {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 3px;
+    padding: 2px 7px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .s-active  { background: #D1FAE5; color: #065F46; }
+  .s-close   { background: #FEF3C7; color: #92400E; }
+  .s-watch   { background: var(--gray2); color: var(--gray4); }
+  .s-suspend { background: var(--gray2); color: var(--gray4); font-style: italic; }
+  .s-harvest { background: #FEF3C7; color: #92400E; }
+  .s-fire    { background: #D1FAE5; color: #065F46; }
+  .s-breach  { background: #FEE2E2; color: #991B1B; }
+
+  .name-main { font-weight: 600; font-size: 11px; }
+  .name-sub  { font-size: 10px; color: var(--gray4); margin-top: 1px; }
+  .alert-type { font-size: 9px; color: var(--gray4); line-height: 1.4; }
+  .gain-pos  { color: var(--green); font-weight: 700; }
+  .gain-neg  { color: var(--red); font-weight: 700; }
+  .gain-neu  { color: var(--gray4); }
+  .gap-far   { color: var(--gray4); }
+  .gap-close { color: #B87A0A; font-weight: 700; }
+  .gap-active { color: var(--green); font-weight: 700; }
+
+  /* ── ERROR + LOADING ── */
+  .loading-msg { color: var(--gray4); font-size: 11px; padding: 12px 0; }
+  .error-msg   { color: var(--red); font-size: 11px; padding: 8px 0; }
+  .spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--gray3);
+    border-top-color: var(--navy);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── CONFIG PROMPT (shown if no API key) ── */
+  #config-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(27,58,107,0.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  #config-overlay.show { display: flex; }
+  .config-box {
+    background: var(--white);
+    border-radius: 6px;
+    padding: 28px 32px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  }
+  .config-box h2 { font-size: 15px; color: var(--navy); margin-bottom: 8px; }
+  .config-box p  { font-size: 11px; color: var(--gray4); margin-bottom: 16px; line-height: 1.5; }
+  .config-box input {
+    width: 100%;
+    border: 1px solid var(--gray3);
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-family: monospace;
+    color: var(--text);
+    margin-bottom: 12px;
+    outline: none;
+  }
+  .config-box input:focus { border-color: var(--navy); }
+  .config-box button {
+    width: 100%;
+    background: var(--navy);
+    color: var(--white);
+    border: none;
+    border-radius: 4px;
+    padding: 9px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .config-box button:hover { background: #15306A; }
+  .config-note {
+    font-size: 10px;
+    color: var(--gray4);
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    text-align: center;
+    font-size: 10px;
+    color: var(--gray4);
+    margin-top: 14px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── CONFIG OVERLAY (shown if no API key in config.js) ── -->
+<div id="config-overlay">
+  <div class="config-box">
+    <h2>Enter your FMP API key</h2>
+    <p>Your config.js file was not found or did not load. Enter your Financial Modeling Prep API key below. It will be saved in your browser for future visits.</p>
+    <input type="text" id="key-input" placeholder="your_fmp_api_key_here" autocomplete="off" />
+    <button onclick="saveKey()">Save and load dashboard</button>
+    <div class="config-note">Key is stored in your browser only. Never sent anywhere except FMP.</div>
+  </div>
+</div>
+
+<!-- ── HEADER ── -->
+<div class="header">
+  <div>
+    <h1>Portfolio Dashboard — Rollover IRA</h1>
+    <div class="meta">Phil &middot; Fidelity &middot; Master Thesis v1.5 &middot; RMD March 31, 2036</div>
+  </div>
+  <div class="header-right">
+    <div id="ts">—</div>
+    <button id="refresh-btn" onclick="loadPrices()">&#x21BB; Refresh</button>
+  </div>
+</div>
+
+<!-- ── SUMMARY CARDS ── -->
+<div class="cards">
+  <div class="card" style="border-top-color:#1B3A6B">
+    <div class="card-label">Portfolio value</div>
+    <div class="card-value">~$65,970</div>
+    <div class="card-sub">Post XLI exit &middot; July 2, 2026</div>
+  </div>
+  <div class="card" style="border-top-color:#B87A0A">
+    <div class="card-label">Cash reserve (SPAXX)</div>
+    <div class="card-value">73.5%</div>
+    <div class="card-sub">$48,499 &middot; Target 20% &middot; Floor 10%</div>
+  </div>
+  <div class="card" style="border-top-color:#1A6B3A">
+    <div class="card-label">Equity deployed</div>
+    <div class="card-value" id="equity-val">—</div>
+    <div class="card-sub" id="equity-sub">5 active positions</div>
+  </div>
+  <div class="card" style="border-top-color:#5A3A7C">
+    <div class="card-label">Next calendar event</div>
+    <div class="card-value" style="font-size:14px;margin-top:2px">Dec 3, 2026</div>
+    <div class="card-sub">EXEL PDUFA &middot; zanzalintinib &middot; 150 days</div>
+  </div>
+</div>
+
+<!-- ── TRIGGER MONITOR ── -->
+<div class="panel">
+  <div class="section-title">&#9889; Trigger monitor — all active entry, harvest, and exit triggers</div>
+  <div style="overflow-x:auto">
+    <table class="trigger-table">
+      <thead>
+        <tr>
+          <th style="width:52px">Ticker</th>
+          <th style="width:150px">Role</th>
+          <th style="width:75px">Current</th>
+          <th style="width:75px">Trigger</th>
+          <th style="width:80px">Gap</th>
+          <th style="width:100px">Status</th>
+          <th>Fidelity alert type</th>
+        </tr>
+      </thead>
+      <tbody id="trigger-body">
+        <tr><td colspan="7" class="loading-msg"><span class="spinner"></span>Loading prices...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── BOTTOM GRID ── -->
+<div class="bottom-grid">
+
+  <!-- HELD POSITIONS -->
+  <div class="panel" style="margin-bottom:0">
+    <div class="section-title">&#x25A3; Held positions</div>
+    <div style="overflow-x:auto">
+      <table class="holdings-table">
+        <thead>
+          <tr>
+            <th style="width:52px">Ticker</th>
+            <th>Name / tranche</th>
+            <th style="width:64px">Price</th>
+            <th style="width:64px">Value</th>
+            <th style="width:48px">Weight</th>
+            <th style="width:60px">Gain</th>
+            <th style="width:110px">Note</th>
+          </tr>
+        </thead>
+        <tbody id="holdings-body">
+          <tr><td colspan="7" class="loading-msg"><span class="spinner"></span>Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="right-col">
+
+    <!-- OPEN TASKS -->
+    <div class="panel" style="margin-bottom:0">
+      <div class="section-title">&#10003; Open tasks</div>
+      <div id="tasks-body">
+        <div class="task-item">
+          <div class="task-dot dot-amber"></div>
+          <div>
+            <div class="task-label">Monitor JNJ intraday</div>
+            <div class="task-note">Harvest trigger $269.71 — alert set in Fidelity. Execute trim same day if triggered.</div>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-dot dot-gray"></div>
+          <div>
+            <div class="task-label">SHLD — watch list, no order yet</div>
+            <div class="task-note">Gapped to $64.84 over July 4 weekend. Trigger $61.92 not reached. Alert set.</div>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-dot dot-gray"></div>
+          <div>
+            <div class="task-label">Evaluate GEV or VST (Energy Sat 2)</div>
+            <div class="task-note">CA evaluation + Position Buy Thesis required. Deferred pending AMLP trigger.</div>
+          </div>
+        </div>
+        <div class="task-item">
+          <div class="task-dot dot-gray"></div>
+          <div>
+            <div class="task-label">Build quarterly review checklist</div>
+            <div class="task-note">Q3 2026 review ~90 days away. Template to be built next session.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div class="panel" style="margin-bottom:0">
+      <div class="section-title">&#x25A1; Portfolio calendar</div>
+      <div class="cal-row">
+        <span class="cal-date">Jul 24, 2026</span>
+        <span>JNJ dividend payment</span>
+        <span class="cal-days" id="days-jnj-div">—</span>
+      </div>
+      <div class="cal-row">
+        <span class="cal-date">Sep 2026</span>
+        <span>Q3 quarterly review</span>
+        <span class="cal-days">~90 days</span>
+      </div>
+      <div class="cal-row">
+        <span class="cal-date">Dec 3, 2026</span>
+        <span>EXEL PDUFA — zanzalintinib</span>
+        <span class="cal-days" id="days-pdufa">—</span>
+      </div>
+      <div class="cal-row">
+        <span class="cal-date">Jun 2027</span>
+        <span>Annual review + anchor re-evals</span>
+        <span class="cal-days">~12 months</span>
+      </div>
+      <div class="cal-row">
+        <span class="cal-date">Monthly</span>
+        <span>Verify SMA trigger prices — update alerts</span>
+        <span class="cal-days">Recurring</span>
+      </div>
+      <div class="cal-row">
+        <span class="cal-date">Mar 31, 2036</span>
+        <span>RMD begins</span>
+        <span class="cal-days">~9.7 years</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="footer">
+  Governing documents: Portfolio Master Thesis v1.5 &middot; Position Register (governance detail) &middot;
+  Master Watch List (candidates) &middot; Process Map (framework navigation)<br>
+  Prices from Financial Modeling Prep API &middot; Refresh at each session open
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   CONFIGURATION — edit this section when positions change
+   ═══════════════════════════════════════════════════════════════════ */
+
+const PORTFOLIO_VALUE = 65969.76;
+const CASH_VALUE      = 48499.36;
+
+/* 200-day SMA values — update monthly when verifying triggers */
+const SMA200 = {
+  SHLD:  68.94,
+  NUKZ:  68.94,
+  AMLP:  49.88,
+  SAIC:  98.38,
+  OKTA:  88.59,
+  RSPT:  49.29,
+  XAR:  258.16,
+  IHAK:  49.51,
+  XBI:  122.93,
+  JNJ:  218.94,
+  AMAT: 337.19,
+  IHI:   49.91,
+  EXEL:  44.02,
+};
+
+/* All trigger positions */
+const TRIGGERS = [
+  /* Entry triggers — sorted by typical proximity */
+  { sym:'SHLD',  label:'Defense Sat 1',   pill:'pill-secondary',
+    dir:'entry',   triggerFixed: 61.92,  triggerSMA: null,
+    deployNote:'Buy 32 shares at market',
+    alert:'Drops below (USD) $61.92' },
+
+  { sym:'NUKZ',  label:'Energy Sat 1',    pill:'pill-energy',
+    dir:'entry',   triggerFixed: null,   triggerSMA: 0.90,
+    deployNote:'Buy 23 shares at trigger',
+    alert:'Crosses 200-day EMA — verify 10% below before buying' },
+
+  { sym:'AMLP',  label:'Energy Anchor',   pill:'pill-energy',
+    dir:'entry',   triggerFixed: null,   triggerSMA: 0.90,
+    deployNote:'Deploy anchor position',
+    alert:'Crosses 200-day EMA — verify 10% below before buying' },
+
+  { sym:'SAIC',  label:'Defense Sat 2',   pill:'pill-secondary',
+    dir:'entry',   triggerFixed: null,   triggerSMA: 0.90,
+    deployNote:'Re-run CA before buying',
+    alert:'Crosses 200-day EMA — verify 10% below, re-run CA' },
+
+  { sym:'RSPT',  label:'IT Anchor',       pill:'pill-primary',
+    dir:'entry',   triggerFixed: null,   triggerSMA: 0.90,
+    deployNote:'Deploy anchor position',
+    alert:'Crosses 200-day EMA — verify 10% below before buying' },
+
+  { sym:'XAR',   label:'Defense Anchor',  pill:'pill-secondary',
+    dir:'entry',   triggerFixed: null,   triggerSMA: 0.90,
+    deployNote:'XLI proceeds earmarked',
+    alert:'Crosses 200-day EMA — verify 10% below before buying' },
+
+  { sym:'OKTA',  label:'Cyber Sat 1',     pill:'pill-secular',
+    dir:'entry',   triggerFixed: null,   triggerSMA: 0.90,
+    deployNote:'Tranche suspended — F2 caution',
+    alert:'Crosses 200-day EMA (tranche suspended — confirm HC band first)' },
+
+  { sym:'IHAK',  label:'Cyber Anchor',    pill:'pill-secular',
+    dir:'entry',   triggerFixed: null,   triggerSMA: 0.90,
+    deployNote:'Tranche suspended',
+    alert:'Crosses 200-day EMA (tranche suspended — confirm HC band first)' },
+
+  { sym:'XBI',   label:'Bio Anchor',      pill:'pill-alpha',
+    dir:'entry',   triggerFixed: null,   triggerSMA: 0.90,
+    deployNote:'Deploy anchor position',
+    alert:'Crosses 200-day EMA — verify 10% below before buying' },
+
+  /* Harvest and exit triggers */
+  { sym:'JNJ',   label:'Harvest',         pill:'pill-harvest',
+    dir:'harvest', triggerFixed:269.71,   triggerSMA: null,
+    deployNote:'Trim per JNJ PBT v1.0',
+    alert:'Rises above (USD) $269.71 — fixed cost basis' },
+
+  { sym:'AMAT',  label:'5% cap alert',    pill:'pill-harvest',
+    dir:'harvest', triggerFixed:824.62,   triggerSMA: null,
+    deployNote:'Trim at next rebalancing',
+    alert:'Rises above (USD) $824.62 — 5% cap threshold' },
+
+  { sym:'EXEL',  label:'Harvest',         pill:'pill-harvest',
+    dir:'harvest', triggerFixed: 64.75,   triggerSMA: null,
+    deployNote:'Trim per EXEL PBT v1.0',
+    alert:'Rises above (USD) $64.75 — fixed cost basis' },
+
+  { sym:'IHI',   label:'Drawdown exit',   pill:'pill-harvest',
+    dir:'drawdown',triggerFixed: 39.86,   triggerSMA: null,
+    deployNote:'Review — exit per IHI PBT v1.0',
+    alert:'Drops below (USD) $39.86 — cost basis −20%' },
+];
+
+/* Held positions */
+const HOLDINGS = [
+  { sym:'JNJ',  name:'Johnson & Johnson',       tranche:'HC Satellite 1', shares:26.291, cost:5909.02 },
+  { sym:'IHI',  name:'iShares Medical Devices', tranche:'HC Satellite 2', shares:97,     cost:4903.35 },
+  { sym:'XLV',  name:'Health Care Select SPDR', tranche:'HC Anchor',      shares:10.043, cost:1486.00 },
+  { sym:'AMAT', name:'Applied Materials',        tranche:'IT Adjacent',    shares:4,      cost:1429.60 },
+  { sym:'EXEL', name:'Exelixis, Inc.',           tranche:'Bio Satellite 1',shares:25,     cost:1056.00 },
+];
+
+/* All unique tickers we need to fetch */
+const ALL_TICKERS = [...new Set([
+  ...TRIGGERS.map(t => t.sym),
+  ...HOLDINGS.map(h => h.sym)
+])];
+
+/* ═══════════════════════════════════════════════════════════════════
+   API KEY RESOLUTION
+   Priority: 1) config.js (FMP_API_KEY global)
+             2) localStorage
+             3) Config overlay prompt
+   ═══════════════════════════════════════════════════════════════════ */
+
+function getApiKey() {
+  if (typeof FMP_API_KEY !== 'undefined' && FMP_API_KEY && FMP_API_KEY !== 'YOUR_FMP_API_KEY_HERE') {
+    return FMP_API_KEY;
+  }
+  const stored = localStorage.getItem('fmp_api_key');
+  if (stored) return stored;
+  return null;
+}
+
+function saveKey() {
+  const val = document.getElementById('key-input').value.trim();
+  if (!val) { alert('Please enter your API key.'); return; }
+  localStorage.setItem('fmp_api_key', val);
+  document.getElementById('config-overlay').classList.remove('show');
+  loadPrices();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PRICE FETCHING
+   ═══════════════════════════════════════════════════════════════════ */
+
+async function fetchPrices(apiKey) {
+  const syms = ALL_TICKERS.join(',');
+  const url = `https://financialmodelingprep.com/api/v3/quote/${syms}?apikey=${apiKey}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (!Array.isArray(data)) throw new Error('Unexpected API response');
+  const prices = {};
+  for (const item of data) {
+    if (item.symbol && item.price != null) {
+      prices[item.symbol] = item.price;
+    }
+  }
+  return prices;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   FORMATTING HELPERS
+   ═══════════════════════════════════════════════════════════════════ */
+
+function fmt(n)    { return n == null ? '—' : '$' + n.toFixed(2); }
+function fmtC(n)   { return '$' + Math.round(n).toLocaleString(); }
+function fmtPct(n) { return (n >= 0 ? '+' : '') + n.toFixed(1) + '%'; }
+
+function triggerPrice(row) {
+  if (row.triggerFixed) return row.triggerFixed;
+  if (row.triggerSMA && SMA200[row.sym]) return SMA200[row.sym] * row.triggerSMA;
+  return null;
+}
+
+function gapClass(row, price, trigger) {
+  if (row.dir !== 'entry') return 'gap-far';
+  if (price <= trigger) return 'gap-active';
+  if ((price - trigger) <= 5) return 'gap-close';
+  return 'gap-far';
+}
+
+function statusPill(row, price, trigger) {
+  const suspended = row.sym === 'OKTA' || row.sym === 'IHAK';
+  if (suspended) return '<span class="status-pill s-suspend">Suspended</span>';
+
+  if (row.dir === 'harvest') {
+    if (price >= trigger) return '<span class="status-pill s-fire">Fire &mdash; act today</span>';
+    return '<span class="status-pill s-watch">Watching</span>';
+  }
+  if (row.dir === 'drawdown') {
+    if (price <= trigger) return '<span class="status-pill s-breach">Review now</span>';
+    return '<span class="status-pill s-watch">Within range</span>';
+  }
+  /* entry */
+  if (price <= trigger) return '<span class="status-pill s-active">Active &mdash; deploy</span>';
+  if ((price - trigger) <= 5) return '<span class="status-pill s-close">Close &mdash; watch</span>';
+  return '<span class="status-pill s-watch">Watching</span>';
+}
+
+function gapDisplay(row, price, trigger) {
+  const gap = price - trigger;
+  const abs = Math.abs(gap).toFixed(2);
+  const sign = gap >= 0 ? '+' : '&minus;';
+  return `${sign}$${abs}`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RENDER FUNCTIONS
+   ═══════════════════════════════════════════════════════════════════ */
+
+function renderTriggers(prices) {
+  const tbody = document.getElementById('trigger-body');
+  let html = '';
+
+  for (const row of TRIGGERS) {
+    const price   = prices[row.sym];
+    const trigger = triggerPrice(row);
+    if (price == null || trigger == null) continue;
+
+    const isExit  = row.dir !== 'entry';
+    const rowBg   = isExit ? ' class="exit-row"' : '';
+    const gc      = gapClass(row, price, trigger);
+    const gap     = gapDisplay(row, price, trigger);
+    const status  = statusPill(row, price, trigger);
+
+    html += `<tr${rowBg}>
+      <td><span class="sym">${row.sym}</span></td>
+      <td>
+        <span class="role-pill ${row.pill}">${row.label}</span>
+        <div class="name-sub" style="margin-top:2px">${row.deployNote}</div>
+      </td>
+      <td style="font-weight:700">${fmt(price)}</td>
+      <td>${fmt(trigger)}</td>
+      <td class="${gc}">${gap}</td>
+      <td>${status}</td>
+      <td class="alert-type">${row.alert}</td>
+    </tr>`;
+  }
+
+  tbody.innerHTML = html || '<tr><td colspan="7" class="error-msg">No data returned from API.</td></tr>';
+}
+
+function renderHoldings(prices) {
+  const tbody = document.getElementById('holdings-body');
+  let html = '';
+  let totalEquity = 0;
+
+  for (const h of HOLDINGS) {
+    const price = prices[h.sym];
+    if (price == null) continue;
+
+    const value = h.shares * price;
+    totalEquity += value;
+    const weight = (value / PORTFOLIO_VALUE * 100).toFixed(1) + '%';
+    const gain   = (value - h.cost) / h.cost * 100;
+    const gainStr = fmtPct(gain);
+    const gainClass = gain > 3 ? 'gain-pos' : gain < -3 ? 'gain-neg' : 'gain-neu';
+
+    let note = '';
+    if (h.sym === 'JNJ' && price >= 255)
+      note = '<span style="color:#B87A0A;font-size:10px;font-weight:700">&#9651; Harvest close</span>';
+    if (h.sym === 'JNJ' && price >= 269.71)
+      note = '<span style="color:#1A6B3A;font-size:10px;font-weight:700">&#9654; Harvest &mdash; act today</span>';
+    if (h.sym === 'EXEL')
+      note = '<span style="color:#B87A0A;font-size:10px">Dec 3 PDUFA</span>';
+    if (h.sym === 'AMAT')
+      note = '<span style="color:var(--gray4);font-size:10px">Cap alert $825</span>';
+    if (h.sym === 'IHI' && price <= 44)
+      note = '<span style="color:#B87A0A;font-size:10px;font-weight:700">&#9651; Approaching exit</span>';
+
+    html += `<tr>
+      <td><span class="sym">${h.sym}</span></td>
+      <td>
+        <div class="name-main">${h.name}</div>
+        <div class="name-sub">${h.tranche} &middot; ${h.shares} sh</div>
+      </td>
+      <td style="font-weight:700">${fmt(price)}</td>
+      <td>${fmtC(value)}</td>
+      <td>${weight}</td>
+      <td class="${gainClass}">${gainStr}</td>
+      <td>${note}</td>
+    </tr>`;
+  }
+
+  /* Cash row */
+  const cashWeight = (CASH_VALUE / PORTFOLIO_VALUE * 100).toFixed(1) + '%';
+  html += `<tr style="background:var(--gray1)">
+    <td><span class="sym" style="color:var(--green)">SPAXX</span></td>
+    <td><div class="name-main">Cash Reserve</div>
+        <div class="name-sub">Strategic &middot; ~4.3% yield</div></td>
+    <td>&mdash;</td>
+    <td>${fmtC(CASH_VALUE)}</td>
+    <td style="color:#B87A0A;font-weight:700">${cashWeight}</td>
+    <td class="gain-neu">~4.3%</td>
+    <td><span style="color:#B87A0A;font-size:10px">&#9651; Excess vs 20% target</span></td>
+  </tr>`;
+
+  tbody.innerHTML = html || '<tr><td colspan="7" class="error-msg">No data.</td></tr>';
+
+  /* Update equity summary card */
+  const equityPct = (totalEquity / PORTFOLIO_VALUE * 100).toFixed(1);
+  document.getElementById('equity-val').textContent = equityPct + '%';
+  document.getElementById('equity-sub').textContent =
+    fmtC(totalEquity) + ' across ' + HOLDINGS.length + ' positions';
+}
+
+function updateCalendar() {
+  const today = new Date();
+  const targets = {
+    'days-jnj-div': new Date('2026-07-24'),
+    'days-pdufa':   new Date('2026-12-03'),
+  };
+  for (const [id, target] of Object.entries(targets)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const diff = Math.round((target - today) / (1000 * 60 * 60 * 24));
+    el.textContent = diff > 0 ? diff + ' days' : diff === 0 ? 'Today' : 'Past';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MAIN LOAD FUNCTION
+   ═══════════════════════════════════════════════════════════════════ */
+
+async function loadPrices() {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    document.getElementById('config-overlay').classList.add('show');
+    return;
+  }
+
+  const btn = document.getElementById('refresh-btn');
+  const ts  = document.getElementById('ts');
+
+  btn.textContent = '↻ Loading...';
+  btn.classList.add('loading');
+  btn.disabled = true;
+  ts.textContent = 'Fetching live prices...';
+
+  document.getElementById('trigger-body').innerHTML =
+    '<tr><td colspan="7" class="loading-msg"><span class="spinner"></span>Fetching prices from FMP...</td></tr>';
+  document.getElementById('holdings-body').innerHTML =
+    '<tr><td colspan="7" class="loading-msg"><span class="spinner"></span>Loading...</td></tr>';
+
+  try {
+    const prices = await fetchPrices(apiKey);
+    renderTriggers(prices);
+    renderHoldings(prices);
+    updateCalendar();
+
+    const now = new Date();
+    ts.textContent = 'Updated ' + now.toLocaleTimeString('en-US', {
+      hour: 'numeric', minute: '2-digit', second: '2-digit'
+    });
+  } catch (err) {
+    console.error(err);
+    const errMsg = err.message.includes('401') || err.message.includes('403')
+      ? 'Invalid API key. <a href="#" onclick="clearKey()">Clear saved key</a> and re-enter.'
+      : 'Could not fetch prices: ' + err.message;
+    document.getElementById('trigger-body').innerHTML =
+      `<tr><td colspan="7" class="error-msg">${errMsg}</td></tr>`;
+    document.getElementById('holdings-body').innerHTML =
+      `<tr><td colspan="7" class="error-msg">${errMsg}</td></tr>`;
+    ts.textContent = 'Error loading prices';
+  } finally {
+    btn.textContent = '↻ Refresh';
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+function clearKey() {
+  localStorage.removeItem('fmp_api_key');
+  document.getElementById('config-overlay').classList.add('show');
+}
+
+/* ── ENTER key in config overlay ── */
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('key-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveKey();
+  });
+  loadPrices();
+  updateCalendar();
+});
+</script>
+</body>
+</html>
